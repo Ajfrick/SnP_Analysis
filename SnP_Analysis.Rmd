@@ -1,0 +1,98 @@
+---
+title: "SnP Analysis"
+author: "Andrew Frick"
+date: "May 17, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ajfhelpR)
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+SnP = read_csv("Data/SnP_Clean.csv")
+Colors = read_csv("Data/FbsColors.csv") %>% rename_excel2R()
+confs = unique(SnP$Conf)
+
+SnP = SnP %>% 
+  mutate(Clvl = ifelse(Conf %in% confs[c(1,2,3,4,6)], 1, 
+                       ifelse(Conf == "Ind", 3, 2)),
+         Clvl_f = factor(Clvl, levels = 1:3, labels = c("Power 5","Mid Major","Independent")))
+  
+ConfLvl = SnP %>% select(Yr, Conf, Clvl_f)
+```
+
+Annual Conference setup
+```{r}
+
+YrConfAvg = SnP %>%
+  group_by(Yr, Conf) %>% 
+  summarise_at(vars(matches("val")), mean) %>% 
+  left_join(ConfLvl, by = c("Yr", "Conf"))
+  
+colnames(YrConfAvg)[3:6] = str_replace(colnames(YrConfAvg)[3:6], "_val", "_Cavg")
+```
+
+```{r}
+
+YrConfAvg %>% filter(Clvl_f == "Power 5") %>% 
+  ggplot(aes(Yr, SnP_val)) + 
+  geom_hline(yintercept = 0, color = "black", alpha = 0.4) +
+  geom_point(aes(color = Conf), shape = 3) +
+  geom_line(aes(group = Conf, color = Conf), size = 1) + 
+  facet_wrap(~Clvl_f, ncol = 2) + 
+  theme_classic()
+
+```
+
+```{r}
+
+SnP_Full = left_join(SnP, YrConfAvg %>% select(-Clvl_f), by = c("Yr", "Conf"))
+teams = unique(SnP_Full$Team)
+teams = teams[teams %in% Colors$Team]
+team = "Alabama"
+```
+
+```{r}
+SnP_Full %>% filter(Clvl_f == "Power 5") %>% 
+  ggplot(aes(x = Yr)) +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(aes(y = SnP_Cavg, group = Team), color = "grey", shape = 3) +
+  geom_line(aes(y = SnP_Cavg, group = Team), color = "grey") +
+  geom_point(aes(y = SnP_val, group = Team), color = cols[1], shape = 4) +
+  geom_line(aes(y = SnP_val, group = Team), color = cols[1]) +
+  coord_cartesian(ylim = c(-40,40)) +
+  scale_x_continuous(breaks = 2005:2018, labels = str_remove(2005:2018, "^\\d{2}")) +
+  labs(x = "Year", y = "S&P+ Rating",
+       title = str_c("S&P+ Ratings 2005-2018 for "),
+       subtitle = str_c(Team$Conf," Conference Average listed in grey")) + 
+  theme_classic()
+  
+```
+
+
+```{r }
+
+team = "Clemson"
+# team = teams[floor(runif(1,1,length(teams)))]
+cols = Colors %>% filter(Team == team)
+cols = c(cols$Color_1, cols$Color_2)
+cols[2] = ifelse(is.na(cols[2]), "#000000", cols[2])
+Team = SnP_Full %>% filter(Team == team)
+
+Team %>% 
+  ggplot(aes(x = Yr)) +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(aes(y = SnP_Cavg), color = "grey", shape = 3) +
+  geom_line(aes(y = SnP_Cavg), color = "grey") +
+  geom_point(aes(y = SnP_val), color = cols[1], shape = 4) +
+  geom_line(aes(y = SnP_val), color = cols[1]) +
+  coord_cartesian(ylim = c(-40,40)) +
+  scale_x_continuous(breaks = 2005:2018, labels = str_remove(2005:2018, "^\\d{2}")) +
+  labs(x = "Year", y = "S&P+ Rating",
+       title = str_c("S&P+ Ratings 2005-2018 for ",team),
+       subtitle = str_c(Team$Conf," Conference Average listed in grey")) + 
+  theme_classic()
+  
+
+```
+
