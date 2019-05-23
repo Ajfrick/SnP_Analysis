@@ -1,0 +1,79 @@
+---
+title: "NCAA S&P+ 2005-2018"
+
+output: html_document
+runtime: shiny
+---
+  
+```{r setup, include=FALSE}
+library(tidyverse)
+library(stringr)
+library(shiny)
+load("NCAA_SnP/Colors.rda")
+load("NCAA_SnP/SnP.rda")
+
+Colors = Colors %>% select(1:3)
+
+Teams  = SnP_Full %>% 
+  filter(Yr == 2018) %>% 
+  select(Team, Conf)
+
+confs_1 = unique(SnP %>% filter(Clvl == 1 & Yr == 2018) %>% .$Conf)
+confs_2 = unique(SnP %>% filter(Clvl == 2 & Yr == 2018) %>% .$Conf)
+confs_3 = "Ind"
+
+confs = list(confs_1, confs_3, confs_2)
+
+choice_list = list("Power 5" = list(confs_1),
+                   "Independent" = list(confs_3),
+                   "Mid Major" = list(confs_2))
+
+# North = c("Cal","Stan","Ore","OSU","UW","WSU")
+# South = c("USC","Utah","CU","Ariz","ASU")
+# 
+# TeamCols = tibble(Team = sort(unique(PAC12$Team)),
+#                   col = c("#C41E3A","#8C1D40","#003262","#000000","#154733",
+#                           "#DC4405","#8c1515","#3284BF",
+#                           "#9D2235","#cc0000","#4b2e83","#981e32"))
+
+for(i in 1:length(confs)){
+  for(j in 1:length(confs[[i]])){
+    choice_list[[i]][[j]] = Teams %>% filter(Conf == confs[[i]][[j]]) %>% .$Team
+  }
+}
+# 
+# choice_list[[1]] = confs_1
+# names(choice_list[[2]]) = confs_3
+# names(choice_list[[3]]) = confs_2
+
+```
+
+```{r}
+
+
+```
+
+
+```{r WL, echo = F}
+
+inputPanel(
+  selectInput("Team", label = "Team",
+              choices = choice_list
+  )
+  
+)
+renderPlot(
+  ggplot(data = SnP_Full %>% filter(Team == input$Team), aes(x = Year)) +
+    geom_path(aes(y = SnP_val), 
+              color = Colors %>% filter(Team == input$Team) %>% .$Color_1)#+ 
+    # geom_path(aes_string(group = 'Team'), alpha = 0.1) +
+    # geom_path(data = PAC12 %>% filter(Team == "UCLA"), aes(Year, W), 
+    #           color = "Blue", lwd = 1)  +
+    # geom_path(data = PAC12 %>% filter(Team %in% input$Team),
+    #           aes_string(x = "Year", y = "W", group = "Team"),
+    #           alpha = 1, lwd = 1, 
+    #           color = TeamCols %>% filter(Team == input$Team) %>% .$col)
+)
+
+```
+

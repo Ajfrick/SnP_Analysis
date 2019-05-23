@@ -1,0 +1,12 @@
+name: NCAA_SnP
+title: NCAA_SnP
+username:
+account: bruinstats13
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 942072
+bundleId: 2104465
+url: https://bruinstats13.shinyapps.io/NCAA_SnP/
+when: 1558631962.99969
+asMultiple: FALSE
+asStatic: FALSE

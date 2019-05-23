@@ -11,6 +11,7 @@ library(tidyverse)
 knitr::opts_chunk$set(echo = TRUE)
 SnP = read_csv("Data/SnP_Clean.csv")
 Colors = read_csv("Data/FbsColors.csv") %>% rename_excel2R()
+save(Colors, file = "NCAA_SnP/Colors.rda")
 confs = unique(SnP$Conf)
 
 SnP = SnP %>% 
@@ -18,7 +19,7 @@ SnP = SnP %>%
                        ifelse(Conf == "Ind", 3, 2)),
          Clvl_f = factor(Clvl, levels = 1:3, labels = c("Power 5","Mid Major","Independent")))
   
-ConfLvl = SnP %>% select(Yr, Conf, Clvl_f)
+ConfLvl = SnP %>% select(Yr, Conf, Clvl_f) %>% unique()
 ```
 
 Annual Conference setup
@@ -35,7 +36,7 @@ colnames(YrConfAvg)[3:6] = str_replace(colnames(YrConfAvg)[3:6], "_val", "_Cavg"
 ```{r}
 
 YrConfAvg %>% filter(Clvl_f == "Power 5") %>% 
-  ggplot(aes(Yr, SnP_val)) + 
+  ggplot(aes(Yr, SnP_Cavg)) + 
   geom_hline(yintercept = 0, color = "black", alpha = 0.4) +
   geom_point(aes(color = Conf), shape = 3) +
   geom_line(aes(group = Conf, color = Conf), size = 1) + 
@@ -46,11 +47,58 @@ YrConfAvg %>% filter(Clvl_f == "Power 5") %>%
 
 ```{r}
 
-SnP_Full = left_join(SnP, YrConfAvg %>% select(-Clvl_f), by = c("Yr", "Conf"))
+SnP_Full = left_join(SnP, YrConfAvg %>% select(-Clvl_f), by = c("Yr", "Conf")) %>% 
+  arrange(Clvl_f, Conf, Team)
+
+save(SnP_Full, file = "SnP.rda")
 teams = unique(SnP_Full$Team)
 teams = teams[teams %in% Colors$Team]
 team = "Alabama"
 ```
+
+```{r}
+UCLA = SnP_Full %>% 
+  filter(Team == "UCLA") %>% 
+  mutate(Coach = c("Kelly", rep("Mora", times = 5),
+                   rep("Neuheisal", times = 5),
+                   rep("Dorrel", times = 3)))
+                   
+```
+
+```{r}
+
+UclaCoach = UCLA %>% select(Yr, Coach) %>% 
+  group_by(Coach) %>% 
+  summarise(Start = min(Yr),
+            End = max(Yr),
+            Mid = mean(Yr))
+
+```
+
+
+```{r}
+cols = Colors %>% filter(Team == "UCLA")
+cols = c(cols$Color_1, cols$Color_2)
+
+UCLA %>% 
+  ggplot(aes(x = Yr)) +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(aes(y = SnP_Cavg), color = "grey", shape = 3) +
+  geom_line(aes(y = SnP_Cavg), color = "grey") +
+  geom_point(aes(y = SnP_val), color = cols[1], shape = 4) +
+  geom_line(aes(y = SnP_val), color = cols[1]) +
+  coord_cartesian(ylim = c(-40,40)) +
+  geom_text(data = UclaCoach, aes(x = Mid, label = Coach), y = -10) +
+  geom_segment(data = UclaCoach,aes(x = Start - .5, xend = End), y = -15, yend = -15) +
+  geom_point(data = UclaCoach, aes(x = Start - .5), y = -15) +
+  scale_x_continuous(breaks = 2005:2018, labels = str_remove(2005:2018, "^\\d{2}")) +
+  labs(x = "Year", y = "S&P+ Rating",
+       title = str_c("S&P+ Ratings 2005-2018 for UCLA"),
+       subtitle = str_c("PAC-12 Conference Average listed in grey")) + 
+  theme_classic()
+  
+```
+
 
 ```{r}
 SnP_Full %>% filter(Clvl_f == "Power 5") %>% 
