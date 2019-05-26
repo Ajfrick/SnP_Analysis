@@ -5,11 +5,11 @@ output: html_document
 runtime: shiny
 ---
   
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, echo = F}
 library(tidyverse)
 library(stringr)
 library(shiny)
-
+knitr::opts_chunk$set(echo = F)
 
 load("Colors.rda")
 load("SnP.rda")
@@ -21,107 +21,199 @@ Teams  = SnP_Full %>%
   filter(Yr == 2018) %>%
   select(Team, Conf)
 
+ConfLvl = SnP_Full %>% select(Yr, Conf, Clvl_f) %>% unique()
+
 confs_1 = unique(SnP_Full %>% filter(Clvl == 1 & Yr == 2018) %>% .$Conf)
 confs_2 = unique(SnP_Full %>% filter(Clvl == 2 & Yr == 2018) %>% .$Conf)
 confs_3 = "Ind"
 
 confs = list(confs_1, confs_3, confs_2)
 
-choice_list = list("Power 5" = list(confs_1),
+choice_conf = list("Power 5" = list(confs_1),
                    "Independent" = list(confs_3),
                    "Mid Major" = list(confs_2))
+
+choice_team = choice_conf
 
 
 for(i in 1:length(confs)){
   for(j in 1:length(confs[[i]])){
-    choice_list[[i]][[j]] = Teams %>% filter(Conf == confs[[i]][[j]]) %>% .$Team
+    choice_team[[i]][[j]] = Teams %>% filter(Conf == confs[[i]][[j]]) %>% .$Team
   }
-  names(choice_list[[i]]) = confs[[i]]
+  names(choice_team[[i]]) = confs[[i]]
 }
 
 
 
-```
+SnP_Val = SnP_Full %>% 
+  select(matches("Yr|Conf|Team|val|Cavg")) %>% 
+  gather(stat, val, -c(Yr:Team,SnP_Cavg:SnPS_Cavg)) %>% 
+  filter(stat != "SnPS_val") %>% 
+  mutate(stat = ifelse(stat == "SnP_val", "Overall",
+                       ifelse(stat == "SnPO_val", "Offense", "Defense")))
+  
+ConfLvl = SnP_Full %>% select(Yr, Conf, Clvl_f) %>% unique()
 
-```{r}
 YrConfAvg = SnP_Full %>%
   group_by(Yr, Conf) %>% 
   summarise_at(vars(matches("val")), mean) %>% 
   left_join(ConfLvl, by = c("Yr", "Conf"))
-  
-colnames(YrConfAvg)[3:6] = str_replace(colnames(YrConfAvg)[3:6], "_val", "_Cavg")
+```
 
-YrConfAvg %>% filter(Clvl_f == "Power 5") %>% 
-  ggplot(aes(Yr, SnP_Cavg)) + 
-  geom_hline(yintercept = 0, color = "black", alpha = 0.4) +
-  geom_point(aes(color = Conf), shape = 3) +
-  geom_line(aes(group = Conf, color = Conf), size = 1) + 
-  facet_wrap(~Clvl_f, ncol = 2) +
-  scale_x_continuous(breaks = 2005:2018, labels = str_extract(2005:2018,"\\d{2}$"),
-                     limits = c(2005, 2018)) +
-  scale_y_continuous(breaks = seq(-40,40, by = 20), limits = c(-40, 40)) +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank())
+```{r}
+
+inputPanel(
+  selectInput("Clvl", label = "Conference Level",
+              choices = list("Level" = c("Power 5", "Mid Major")),
+              selected = "Power 5"
+  )
+)
+renderPlot(
+  YrConfAvg %>% 
+    filter(Clvl_f == input$Clvl) %>% 
+    ggplot(aes(Yr, SnP_val)) + 
+    geom_hline(yintercept = 0, color = "black", alpha = 0.4) +
+    geom_point(aes(color = Conf), shape = 21, size = 1) +
+    geom_line(aes(group = Conf, color = Conf), size = 1) + 
+    # facet_wrap(~Clvl_f, ncol = 2) +
+    scale_x_continuous(breaks = 2005:2018, labels = str_extract(2005:2018,"\\d{2}$"),
+                       limits = c(2005, 2018)) +
+    scale_y_continuous(breaks = seq(-40,40, by = 20), limits = c(-40, 40)) +
+    scale_color_brewer(palette = "Set1") +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank()) + 
+    labs(title = "S&P+ Rankings 2005-2018 by Conference",
+         subtitle = "Conference membership based on 2018 season",
+         caption = "Data sourced from Football Outsiders")
+)
+
 
 ```
 
 
-```{r WL, echo = F}
+```{r}
+# YrConfAvg = SnP_Full %>%
+#   group_by(Yr, Conf) %>% 
+#   summarise_at(vars(matches("val")), mean) %>% 
+#   left_join(ConfLvl, by = c("Yr", "Conf"))
+#   
+# colnames(YrConfAvg)[3:6] = str_replace(colnames(YrConfAvg)[3:6], "_val", "_Cavg")
+# 
+# YrConfAvg %>% filter(Clvl_f == "Power 5") %>% 
+#   ggplot(aes(Yr, SnP_Cavg)) + 
+#   geom_hline(yintercept = 0, color = "black", alpha = 0.4) +
+#   geom_point(aes(color = Conf), shape = 3) +
+#   geom_line(aes(group = Conf, color = Conf), size = 1) + 
+#   facet_wrap(~Clvl_f, ncol = 2) +
+#   scale_x_continuous(breaks = 2005:2018, labels = str_extract(2005:2018,"\\d{2}$"),
+#                      limits = c(2005, 2018)) +
+#   scale_y_continuous(breaks = seq(-40,40, by = 20), limits = c(-40, 40)) +
+#   theme_bw() +
+#   theme(panel.grid.minor = element_blank()) + 
+#   labs(title = "S&P+ Rankings 2005-2018 by Conference",
+#        caption = "Data sourced from Football Outsiders")
+
+```
+
+
+S&P+ Ratings by Year for FBS Teams
+
+```{r Team, echo = F}
+SnP_Val = SnP_Full %>% 
+  select(matches("Yr|Conf|Team|val|Cavg")) %>% 
+  gather(stat, val, -c(Yr:Team,SnP_Cavg:SnPS_Cavg)) %>% 
+  filter(stat != "SnPS_val") %>% 
+  mutate(stat = ifelse(stat == "SnP_val", "Overall",
+                       ifelse(stat == "SnPO_val", "Offense", "Defense"))) 
+
+Ltys = tibble(
+  stat = c("Overall", "Offense", "Defense"),
+  lty = c(1,4,3)
+) %>% 
+  arrange(stat)
+
 
 inputPanel(
   selectInput("Team", label = "Team",
-              choices = choice_list
+              choices = choice_team,
+              selected = "UCLA"
+  ),
+  checkboxGroupInput("Rating", label = "S&P+", 
+                     selected = "Overall",
+                     choices = list("Overall", "Offense", "Defense")
   )
-
+  # checkboxGroupInput("Stat", label = "Stat", 
+  #             choices = list("S%P+" = list("Overall", "Offense", "Defense"))
+  # )
+  
 )
+
 renderPlot(
-  ggplot(data = SnP_Full %>% filter(Team == input$Team), aes(x = Yr)) +
+  ggplot(data = SnP_Val %>% filter(Team == input$Team & (stat %in% input$Rating)),
+         aes(x = Yr)) +
     geom_line(aes(y = SnP_Cavg), color = 'grey', alpha = 0.8) +
     geom_hline(yintercept = 0, lty = 2) +
-    geom_line(aes(y = SnP_val),
-              color = Colors %>% filter(Team == input$Team) %>% .$Color_1,
+    geom_line(aes(y = val, color = Team, group = stat, lty = stat),
               size = 1) +
-    geom_point(aes(y = SnP_val),
-              color = Colors %>% filter(Team == input$Team) %>% .$Color_1,
-              size = 2) +
+    geom_point(aes(y = val, color = Team),
+              shape = 21) + 
     scale_x_continuous(breaks = 2005:2018, labels = str_extract(2005:2018,"\\d{2}$"),
                        limits = c(2005, 2018)) +
-    scale_y_continuous(breaks = seq(-40,40, by = 20), limits = c(-40, 40)) +
+    scale_y_continuous(breaks = seq(-50,50, by = 25), limits = c(-50, 50)) +
+    scale_color_manual(values =  Colors %>% filter(Team == input$Team) %>% .$Color_1) +
+    scale_fill_manual(values =  Colors %>% filter(Team == input$Team) %>% .$Color_1) +
+    scale_linetype_manual(values = Ltys %>% filter(stat %in%input$Rating) %>% .$lty,
+                          labels = Ltys %>% filter(stat %in% input$Rating) %>% .$stat) +
     theme_bw() +
     labs(x = "Year", y = "S&P+ Rating",
          title = str_c("S&P+ Ratings 2005-2018 for ",input$Team),
-         subtitle = str_c(Teams %>% filter(Team == input$Team) %>% .$Conf,
-                          " Conference Average listed in grey"))  +
+         subtitle = "Overall = Offense - Defense: Lower Defensive Rating is Better",
+         caption = "Data sourced from Football Outsiders")  +
+    guides(color = F,
+      linetype = guide_legend(override.aes = list(color = (Colors %>% 
+                                                filter(Team == input$Team) %>% .$Color_1)))) +
     theme(panel.grid.minor = element_blank())
 
 )
 
 ```
 
+
 ```{r}
+choice_conf = list("Power 5" =confs_1,
+                   "Independent" = confs_3,
+                   "Mid Major" = confs_2)
+Colors = Colors %>%
+  select(1:3) %>% 
+  left_join(Teams, by = "Team")
+
+
 inputPanel(
-  selectInput("Conf", label = "Conf",
-              choices = confs
+  selectInput("Conf", label = "Conference",
+              choices = choice_conf,
+              selected = "Pac-12"
   )
 
 )
+SnP_Reduce = semi_join(SnP_Full, Teams, by = "Team")
 renderPlot(
-  ggplot(data = SnP_Full %>% filter(Conf == input$Conf), aes(x = Yr)) +
-    geom_line(aes(y = SnP_Cavg), color = 'grey', alpha = 0.8) +
+  ggplot(data = SnP_Reduce %>% filter(Conf == input$Conf), aes(x = Yr)) +
+    # geom_line(aes(y = SnP_Cavg), color = 'black', alpha = 0.8) +
     geom_hline(yintercept = 0, lty = 2) +
-    geom_line(aes(y = SnP_val, color = Team),
-              size = 1) +
+    geom_line(aes(y = SnP_val, color = Team, group = Team),
+              size = 1, alpha = 0.7) +
     geom_point(aes(y = SnP_val, color = Team),
               size = 2) +
     scale_x_continuous(breaks = 2005:2018, labels = str_extract(2005:2018,"\\d{2}$"),
                        limits = c(2005, 2018)) +
     scale_y_continuous(breaks = seq(-40,40, by = 20), limits = c(-40, 40)) +
-    scale_color_manual(values = Colors %>% filter(Conf == input$Conf) %>% .$Color) +
+    scale_color_manual(values = Colors %>% 
+                         filter(Conf == input$Conf) %>% arrange(Team) %>% 
+                         .$Color_1 %>% tolower) +
     theme_bw() +
     labs(x = "Year", y = "S&P+ Rating",
-         title = str_c("S&P+ Ratings 2005-2018 for ",input$Team),
-         subtitle = str_c(Teams %>% filter(Team == input$Team) %>% .$Color_1,
-                          " Conference Average listed in grey"))  +
+         title = str_c("S&P+ Conference Average Ratings 2005-2018 for ",input$Conf),
+         caption = "Data sourced from Football Outsiders")  +
     theme(panel.grid.minor = element_blank())
 
 )
